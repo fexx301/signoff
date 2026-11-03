@@ -22,9 +22,10 @@ Use a Node runtime that supports `node:sqlite` (Node 24 is the tested runtime).
 npm ci
 cp .env.example .env.local
 npm run setup:processor
+npm run setup:seller
 ```
 
-If `.env.local` already exists, keep it instead of copying over it. `setup:processor` creates a dedicated testnet processor key if absent, sets the matching PAY_TO, keeps any existing SERV key, and prints only the public address. It writes the ignored secret file with mode 600. Never commit that file or share its private key.
+If `.env.local` already exists, keep it instead of copying over it. `setup:processor` creates a dedicated testnet processor key if absent, sets the matching PAY_TO, keeps any existing SERV key, and prints only the public address. It writes the ignored secret file with mode 600. Never commit that file or share its private key. `setup:seller` similarly creates a dedicated receiving wallet and replaces the prototype payout placeholder. Keep its key locally so the seller payment remains accessible.
 
 Request testnet KITE for the displayed public address at the official faucet: https://faucet.gokite.ai/ . Network settings: https://docs.gokite.ai/kite-chain/1-getting-started/network-information . The chain is 2368; native KITE covers gas. Testnet pieUSD is the buyer payment asset and reaches the processor through an incoming paid job. Buyer/session funding is a separate integration step.
 

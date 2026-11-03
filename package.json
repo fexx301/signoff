@@ -13,7 +13,8 @@
     "probe": "tsx scripts/probe.ts",
     "demo": "tsx scripts/demo-buyer.ts",
     "setup:processor": "tsx scripts/create-processor.ts",
-    "verify:serv": "tsx scripts/verify-serv.ts"
+    "verify:serv": "tsx scripts/verify-serv.ts",
+    "setup:seller": "tsx scripts/create-processor.ts --seller"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",
