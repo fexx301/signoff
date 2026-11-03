@@ -8,3 +8,7 @@ dist/
 *.db-journal
 *.log
 .DS_Store
+
+.kite-passport/
+
+.kpass/

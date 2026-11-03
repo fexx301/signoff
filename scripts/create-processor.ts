@@ -13,7 +13,7 @@ const seller = process.argv.includes("--seller");
 const key = (seller ? env.SELLER_PRIVATE_KEY : env.PROCESSOR_PRIVATE_KEY) || generatePrivateKey();
 const account = privateKeyToAccount(key as `0x${string}`);
 let updated = original;
-for (const [name, value] of Object.entries({ KITE_NETWORK: "testnet", SELLER_SECRET: env.SELLER_SECRET || randomBytes(32).toString("hex"), ...(seller ? { SELLER_PRIVATE_KEY: key, SELLER_PAYOUT_ADDRESS: account.address } : { PROCESSOR_PRIVATE_KEY: key, PAY_TO: account.address }) })) {
+for (const [name, value] of Object.entries({ KITE_NETWORK: "testnet", SELLER_SECRET: env.SELLER_SECRET && env.SELLER_SECRET !== "dev-seller-secret" ? env.SELLER_SECRET : randomBytes(32).toString("hex"), ...(seller ? { SELLER_PRIVATE_KEY: key, SELLER_PAYOUT_ADDRESS: account.address } : { PROCESSOR_PRIVATE_KEY: key, PAY_TO: account.address }) })) {
   const line = new RegExp(`^${name}=.*$`, "m");
   updated = line.test(updated) ? updated.replace(line, `${name}=${value}`) : `${updated.trimEnd()}\n${name}=${value}\n`;
 }
