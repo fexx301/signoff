@@ -52,6 +52,7 @@ export async function submitAppeal(job: Job, reason: string): Promise<ReppoAppea
 
   const response = await fetch(`${config.reppoBaseUrl}/agents/eval-requests/submit`, {
     method: "POST",
+    signal: AbortSignal.timeout(30_000),
     headers: headers(),
     body: JSON.stringify({
       type: "artifact",
@@ -74,8 +75,9 @@ export async function submitAppeal(job: Job, reason: string): Promise<ReppoAppea
     throw new Error(`Reppo submit failed (${response.status}): ${text.slice(0, 500)}`);
   }
 
+  if (typeof data.evalId !== "string" || !data.evalId.trim()) throw new Error("Reppo returned no usable evalId");
   return {
-    evalId: data.evalId ?? null,
+    evalId: data.evalId,
     status: "PENDING",
     submittedAt: new Date().toISOString(),
     reason,
@@ -84,6 +86,14 @@ export async function submitAppeal(job: Job, reason: string): Promise<ReppoAppea
     critique: null,
     raw: data,
   };
+}
+
+export function normalizeAppealDecision(value: unknown): "accept" | "reject" | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (["accept", "accepted", "pass", "approve", "approved"].includes(normalized)) return "accept";
+  if (["reject", "rejected", "fail", "deny", "denied", "not accepted"].includes(normalized)) return "reject";
+  return null;
 }
 
 function extractResult(result: unknown): { score: number | null; decision: string | null; critique: string | null } {
@@ -97,7 +107,7 @@ function extractResult(result: unknown): { score: number | null; decision: strin
   const critiqueRaw = value.critique ?? value.summary ?? value.reasoning;
   return {
     score: Number.isFinite(score as number) ? (score as number) : null,
-    decision: decisionRaw != null ? String(decisionRaw) : null,
+    decision: normalizeAppealDecision(decisionRaw),
     critique: critiqueRaw != null ? String(critiqueRaw) : null,
   };
 }
@@ -113,13 +123,16 @@ export async function pollAppeal(evalId: string): Promise<{
 
   const response = await fetch(`${config.reppoBaseUrl}/agents/eval-requests/${encodeURIComponent(evalId)}`, {
     headers: headers(),
+    signal: AbortSignal.timeout(30_000),
   });
   const text = await response.text();
   if (!response.ok) {
     throw new Error(`Reppo poll failed (${response.status}): ${text.slice(0, 500)}`);
   }
   const data = JSON.parse(text) as ReppoEvalResponse;
-  const status = (data.status ?? "PENDING") as ReppoAppeal["status"];
+  const allowed = ["PENDING", "SETTLED", "DENIED", "FAILED", "SUBMITTED", "ERROR"];
+  if (!allowed.includes(data.status ?? "")) throw new Error("Unknown Reppo evaluation status");
+  const status = data.status as ReppoAppeal["status"];
   const extracted = extractResult(data.result);
   return { status, ...extracted, raw: data };
 }

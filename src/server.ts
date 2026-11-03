@@ -13,6 +13,8 @@ import {
   retryJob,
   startJob,
   statusLabel,
+  sha256,
+  stableStringify,
 } from "./jobs.js";
 import { store } from "./store.js";
 import { sellerModelMode } from "./dolphin.js";
@@ -44,6 +46,10 @@ function requireSeller(req: Request, res: Response, next: NextFunction): void {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  awaiting_payment: "#b7791f",
+  payment_pending: "#b7791f",
+  needs_review: "#c05621",
+  transferring: "#2b6cb0",
   held: "#b7791f",
   delivering: "#2b6cb0",
   verifying: "#6b46c1",
@@ -99,7 +105,7 @@ function shell(title: string, body: string): string {
 </style>
 </head>
 <body><div class="wrap">
-<header><div class="brand">Sign<span>off</span></div><div class="tag">x402 settles on 200 OK. Signoff settles on proof.</div></header>
+<header><div class="brand">Sign<span>off</span></div><div class="tag">Agent payments. Released on acceptance.</div></header>
 ${body}
 <div class="foot">Signoff is a testnet prototype. The processor is the merchant of record and holds funds during acceptance; this is disclosed custody, not trustless escrow.</div>
 </div></body></html>`;
@@ -118,7 +124,7 @@ function landing(jobs: Job[]): string {
   return shell(
     "Signoff — acceptance escrow for agent payments",
     `<h1>Acceptance escrow for agent payments.</h1>
-<p class="muted" style="font-size:17px;max-width:720px">A buyer agent pays through a Kite Passport session. Signoff holds the payment, an independent SERV verifier checks the delivered artifact against criteria registered before delivery, and the money is released only on proof — otherwise the buyer is refunded.</p>
+<p class="muted" style="font-size:17px;max-width:720px">A buyer agent pays through a Kite Passport session. Signoff holds the payment, an independent SERV verifier checks the delivered artifact against criteria registered before delivery, and the seller is paid on acceptance, rejected work is refunded, and uncertain results hold funds for review. This prototype checks structure, relevance, and citation attribution; it does not establish factual correctness.</p>
 <div class="row" style="margin:24px 0 8px"><a class="btn" href="/v1/jobs">Recent jobs (JSON)</a><a class="btn" href="/healthz">Health</a></div>
 <h2>Recent receipts</h2>
 <div class="card">${rows || '<p class="muted">No jobs yet. Create one with the demo buyer or a Kite Passport session.</p>'}</div>
@@ -126,14 +132,15 @@ function landing(jobs: Job[]): string {
 <div class="grid">
   <div class="card"><strong>1. Register criteria</strong><p class="muted">The buyer fixes the spec, rubric, and budget before delivery. Hashes go into the receipt.</p></div>
   <div class="card"><strong>2. Pay through Kite</strong><p class="muted">The buyer's approved session pays the x402 challenge on Kite testnet. Signoff, as payee, holds the funds.</p></div>
-  <div class="card"><strong>3. Verify, then settle</strong><p class="muted">SERV returns a schema-bound verdict with quoted evidence. Pass releases to the seller; fail refunds the buyer.</p></div>
+  <div class="card"><strong>3. Verify, then pay out</strong><p class="muted">SERV returns a schema-bound verdict with quoted evidence. Pass releases to the seller; fail refunds the buyer.</p></div>
 </div>
-<div class="notice" style="margin-top:24px"><strong>Trust model:</strong> this MVP is custodial on testnet. The processor receives the payment and controls delayed settlement. A production deployment would replace the processor with a non-custodial escrow contract and an arbitrator role.</div>`,
+<div class="notice" style="margin-top:24px"><strong>Trust model:</strong> this MVP is custodial on testnet. The processor receives the payment and controls seller payout and buyer refunds. A production deployment would replace the processor with a non-custodial escrow contract and an arbitrator role.</div>`,
   );
 }
 
 function receiptPage(job: Job): string {
   const verdict = job.verdict;
+  const simulated = job.payment?.mode === "dev" || job.verdict?.serv?.model === "mock" || job.artifact?.provider === "mock" || job.transfer?.mock;
   const checks = verdict?.deterministic ?? [];
   const serv = verdict?.serv;
   const statusColor = STATUS_COLORS[job.status] ?? "#8b95a5";
@@ -172,7 +179,7 @@ function receiptPage(job: Job): string {
 
   return shell(
     `Signoff receipt — ${job.spec.title}`,
-    `<div class="row" style="justify-content:space-between;align-items:flex-start">
+    `${simulated ? '<div class="notice">SIMULATED RUN — no live payment or independent semantic verification is established by this receipt.</div>' : ""}<div class="row" style="justify-content:space-between;align-items:flex-start">
   <div><h1>${escapeHtml(job.spec.title)}</h1><div class="muted">${escapeHtml(job.spec.question)}</div></div>
   <span class="badge" style="background:${statusColor}22;color:${statusColor}">${escapeHtml(statusLabel(job.status))}</span>
 </div>
@@ -271,9 +278,32 @@ export function createApp() {
     const payment = res.locals.x402 as VerifiedPayment | undefined;
     if (payment) {
       const context = res.locals.x402Context as Parameters<typeof settleVerifiedPayment>[2];
-      const settled = await settleVerifiedPayment(runtime, payment, context);
+      const paymentId = sha256(stableStringify(payment.paymentPayload));
+      const claimedJobId = store.claimPayment(paymentId, job.id);
+      if (claimedJobId !== job.id) {
+        failJob(job.id, "Duplicate signed payment; use the original job");
+        const original = requireJob(claimedJobId);
+        if (original.specHash !== job.specHash) {
+          res.status(409).json({ error: "payment_already_bound_to_another_spec", jobId: original.id });
+        } else {
+          res.status(original.payment ? 200 : 202).json(publicJob(original));
+        }
+        return;
+      }
+      job.status = "payment_pending";
+      store.save(job);
+      let settled;
+      try {
+        settled = await settleVerifiedPayment(runtime, payment, context);
+      } catch {
+        job.error = "Incoming settlement response is unknown; reconcile before retrying payment";
+        store.save(job);
+        res.status(502).json({ error: "settlement_unresolved", jobId: job.id });
+        return;
+      }
       if (!settled.ok) {
-        failJob(job.id, `Settlement failed: ${settled.error}`);
+        job.error = `Settlement not established: ${settled.error}; reconcile before paying again`;
+        store.save(job);
         res.status(402).json({ error: "settlement_failed", message: settled.error, jobId: job.id });
         return;
       }

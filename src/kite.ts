@@ -4,6 +4,10 @@ import {
   createWalletClient,
   http,
   parseAbi,
+  encodeFunctionData,
+  decodeEventLog,
+  keccak256,
+  TransactionReceiptNotFoundError,
   type Address,
   type Hex,
 } from "viem";
@@ -115,7 +119,7 @@ export function fromAtomic(units: bigint, decimals: number): string {
 }
 
 export function explorerTxUrl(chain: KiteChain, tx: string | null | undefined): string | null {
-  if (!tx) return null;
+  if (!tx || tx.startsWith("mock_")) return null;
   return `${chain.explorerUrl}/tx/${tx}`;
 }
 
@@ -125,42 +129,49 @@ const ERC20_ABI = parseAbi([
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 ]);
 
-export interface KiteWallet {
-  address: Address;
-  transfer(to: Address, atomic: bigint): Promise<Hex>;
-  balanceOf(address: Address): Promise<bigint>;
-}
-
-export function walletFromKey(chain: KiteChain, privateKey: Hex): KiteWallet {
+export function walletFromKey(chain: KiteChain, privateKey: Hex) {
   const account = privateKeyToAccount(privateKey);
-  const publicClient = createPublicClient({ transport: http(chain.rpcUrl) });
-  const walletClient = createWalletClient({ account, transport: http(chain.rpcUrl) });
-
+  const network = {
+    id: chain.chainId, name: chain.network,
+    nativeCurrency: { name: "KITE", symbol: "KITE", decimals: 18 },
+    rpcUrls: { default: { http: [chain.rpcUrl] } },
+  };
+  const publicClient = createPublicClient({ chain: network, transport: http(chain.rpcUrl) });
+  const walletClient = createWalletClient({ account, chain: network, transport: http(chain.rpcUrl) });
   return {
     address: account.address,
-    async transfer(to, atomic) {
-      const hash = await walletClient.writeContract({
-        address: chain.assetAddress,
-        abi: ERC20_ABI,
-        functionName: "transfer",
-        args: [to, atomic],
-        chain: {
-          id: chain.chainId,
-          name: chain.network,
-          nativeCurrency: { name: "KITE", symbol: "KITE", decimals: 18 },
-          rpcUrls: { default: { http: [chain.rpcUrl] } },
-        },
-        account,
+    pendingNonce: () => publicClient.getTransactionCount({ address: account.address, blockTag: "pending" }),
+    async prepareTransfer(to: Address, atomic: bigint, nonce: number) {
+      const request = await walletClient.prepareTransactionRequest({
+        account, to: chain.assetAddress,
+        data: encodeFunctionData({ abi: ERC20_ABI, functionName: "transfer", args: [to, atomic] }), nonce,
       });
-      return hash;
+      const rawTransaction = await walletClient.signTransaction(request);
+      return { rawTransaction, hash: keccak256(rawTransaction) };
     },
-    async balanceOf(address) {
-      return publicClient.readContract({
-        address: chain.assetAddress,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [address],
+    async confirmTransfer(rawTransaction: Hex, hash: Hex, to: Address, atomic: bigint): Promise<void> {
+      let receipt;
+      try { receipt = await publicClient.getTransactionReceipt({ hash }); }
+      catch (error) { if (!(error instanceof TransactionReceiptNotFoundError)) throw error; }
+      if (!receipt) {
+        // Retry the identical signed transaction. A timeout/"already known"/nonce
+        // error is not permission to create a second transfer.
+        try { await walletClient.sendRawTransaction({ serializedTransaction: rawTransaction }); }
+        catch { /* Resolve the known hash, including ambiguous broadcast failures. */ }
+        receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+      }
+      if (receipt.status !== "success") throw new Error(`Transfer reverted: ${hash}; manual reconciliation required`);
+      const delivered = receipt.logs.some(log => {
+        if (log.address.toLowerCase() !== chain.assetAddress.toLowerCase()) return false;
+        try {
+          const event = decodeEventLog({ abi: ERC20_ABI, data: log.data, topics: log.topics });
+          return event.eventName === "Transfer" && event.args.from.toLowerCase() === account.address.toLowerCase() && event.args.to.toLowerCase() === to.toLowerCase() && event.args.value === atomic;
+        } catch { return false; }
       });
+      if (!delivered) throw new Error(`Receipt lacks the expected token transfer: ${hash}; manual reconciliation required`);
+    },
+    balanceOf(address: Address) {
+      return publicClient.readContract({ address: chain.assetAddress, abi: ERC20_ABI, functionName: "balanceOf", args: [address] });
     },
   };
 }

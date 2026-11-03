@@ -1,16 +1,11 @@
 import { config, assertLiveConfig } from "./config.js";
 import { createApp } from "./server.js";
-import { sweep } from "./jobs.js";
+import { sweep, recoverInterruptedJobs } from "./jobs.js";
 
 const problems = assertLiveConfig();
-if (problems.length > 0) {
-  console.warn("Signoff starting with missing configuration:");
-  for (const problem of problems) console.warn(`  - ${problem}`);
-  if (!config.devSkipPayment) {
-    console.warn("Set DEV_SKIP_PAYMENT=true for local UI work, or provide the missing secrets.");
-  }
-}
+if (problems.length > 0) throw new Error(`Invalid Signoff configuration:\n${problems.join("\n")}`);
 
+recoverInterruptedJobs();
 const app = createApp();
 
 app.listen(config.port, () => {

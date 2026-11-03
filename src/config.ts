@@ -3,7 +3,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { kiteChainByName, type KiteChain } from "./kite.js";
 
 // .env.local wins over .env; both are optional in CI/test.
-dotenv.config({ path: [".env.local", ".env"], quiet: true });
+dotenv.config({ path: [process.env.SIGNOFF_ENV_FILE || ".env.local", ".env"], quiet: true });
 
 function env(key: string, fallback = ""): string {
   return (process.env[key] ?? "").trim() || fallback;
@@ -81,7 +81,7 @@ export const config: AppConfig = {
   processorAccount,
   processorPrivateKey: processorKey,
   sellerPayoutAddress: env("SELLER_PAYOUT_ADDRESS") as `0x${string}` | "",
-  sellerSecret: env("SELLER_SECRET", "dev-seller-secret"),
+  sellerSecret: env("SELLER_SECRET"),
   jobPriceUsd: envNumber("JOB_PRICE_USD", 0.05),
   feeBps: envInt("FEE_BPS", 200),
 
@@ -111,6 +111,18 @@ export function assertLiveConfig(): string[] {
   }
   if (!config.servApiKey && !config.devMockVerdict) {
     problems.push("SERV_API_KEY is required (SERV Reasoning is mandatory)");
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(config.sellerPayoutAddress) || /^0x0{40}$/i.test(config.sellerPayoutAddress)) problems.push("Configure a nonzero SELLER_PAYOUT_ADDRESS");
+  if (!config.sellerSecret || config.sellerSecret === "dev-seller-secret") problems.push("Set a unique SELLER_SECRET");
+  if (config.chain.chainId !== 2368) problems.push("This prototype only supports Kite testnet");
+  if (!Number.isInteger(config.feeBps) || config.feeBps < 0 || config.feeBps >= 10000) problems.push("FEE_BPS must be between 0 and 9999");
+  if (!(config.jobPriceUsd >= 0.01 && config.jobPriceUsd <= 1)) problems.push("JOB_PRICE_USD must be between 0.01 and 1");
+  const anyMock = config.devSkipPayment || config.devMockVerdict || config.devMockPayout;
+  if (anyMock && !(config.devSkipPayment && config.devMockVerdict && config.devMockPayout)) {
+    problems.push("Development mode requires all three DEV_* switches; simulated work must never drive live money");
+  }
+  if (!config.devSkipPayment && config.processorAccount && config.payTo.toLowerCase() !== config.processorAccount.address.toLowerCase()) {
+    problems.push("PAY_TO must match the processor wallet");
   }
   return problems;
 }

@@ -1,4 +1,8 @@
 export type JobStatus =
+  | "awaiting_payment"
+  | "payment_pending"
+  | "needs_review"
+  | "transferring"
   | "held"
   | "delivering"
   | "verifying"
@@ -31,6 +35,7 @@ export interface JobSpec {
   /** Where the seller is paid on acceptance. */
   sellerPayout: string;
   sellerName: string;
+  policyVersion?: "brief-v1";
 }
 
 export interface DeterministicCheck {
@@ -41,6 +46,7 @@ export interface DeterministicCheck {
 }
 
 export interface ServCriterionResult {
+  id?: string;
   criterion: string;
   passed: boolean;
   evidence: string;
@@ -58,7 +64,7 @@ export interface ServVerdict {
 }
 
 export interface CombinedVerdict {
-  decision: "pass" | "fail";
+  decision: "pass" | "fail" | "hold";
   reason: string;
   deterministic: DeterministicCheck[];
   serv: ServVerdict | null;
@@ -93,7 +99,8 @@ export interface Receipt {
   specHash: string;
   criteriaHash: string;
   artifactHash: string | null;
-  verdict: "pass" | "fail" | null;
+  verdict: "pass" | "fail" | "hold" | null;
+  verdictHash?: string | null;
   payment: {
     network: string;
     asset: string;
@@ -107,7 +114,20 @@ export interface Receipt {
   appeal: { evalId: string | null; status: string } | null;
 }
 
+export interface TransferIntent {
+  kind: "payout" | "refund";
+  to: string;
+  amountAtomic: string;
+  hash: string;
+  rawTransaction: string | null;
+  mock: boolean;
+}
+
 export interface Job {
+  revision?: number;
+  disposition?: "payout" | "refund";
+  transfer?: TransferIntent;
+  appealDeadline?: string;
   id: string;
   createdAt: string;
   updatedAt: string;

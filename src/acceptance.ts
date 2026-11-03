@@ -1,3 +1,4 @@
+import { SEMANTIC_IDS } from "./policy.js";
 import type { AcceptanceCriteria, Artifact, CombinedVerdict, DeterministicCheck, ServVerdict } from "./types.js";
 
 const BUILT_IN_CANARIES = [
@@ -42,6 +43,11 @@ function headingPresent(content: string, section: string): boolean {
 export function deterministicChecks(content: string, criteria: AcceptanceCriteria): DeterministicCheck[] {
   const checks: DeterministicCheck[] = [];
 
+  const positions = criteria.requiredSections.map(section => {
+    const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return content.search(new RegExp(`^(?:#{1,4}\\s*${escaped}\\s*|\\*\\*${escaped}\\*\\*\\s*)$`, "im"));
+  });
+  checks.push({ id: "section_order", label: "Required section order", passed: positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1]!)), detail: "Sections must appear in the agreed order" });
   const missingSections = criteria.requiredSections.filter((section) => !headingPresent(content, section));
   checks.push({
     id: "required_sections",
@@ -123,12 +129,18 @@ export function combineVerdict(
   }
   if (!serv) {
     return {
-      decision: "fail",
+      decision: "hold",
       reason: "No independent verdict was produced; funds are held.",
       deterministic: checks,
       serv: null,
       threshold: confidenceThreshold,
     };
+  }
+  if (serv.criteria.length !== SEMANTIC_IDS.length || new Set(serv.criteria.map(c => c.id)).size !== SEMANTIC_IDS.length || serv.criteria.some(c => !SEMANTIC_IDS.includes(c.id as typeof SEMANTIC_IDS[number]))) {
+    return { decision: "hold", reason: "Incomplete criterion coverage; funds remain held", deterministic: checks, serv, threshold: confidenceThreshold };
+  }
+  if (serv.confidence < confidenceThreshold) {
+    return { decision: "hold", reason: "Verifier confidence is below the release threshold; funds remain held", deterministic: checks, serv, threshold: confidenceThreshold };
   }
   if (serv.decision === "fail") {
     return {
@@ -146,15 +158,6 @@ export function combineVerdict(
       reason: `SERV passed the overall artifact but failed ${failedCriteria.length} criterion/criteria: ${failedCriteria
         .map((criterion) => criterion.criterion)
         .join("; ")}`,
-      deterministic: checks,
-      serv,
-      threshold: confidenceThreshold,
-    };
-  }
-  if (serv.confidence < confidenceThreshold) {
-    return {
-      decision: "fail",
-      reason: `SERV confidence ${serv.confidence.toFixed(2)} is below the ${confidenceThreshold.toFixed(2)} release threshold; the seller may appeal.`,
       deterministic: checks,
       serv,
       threshold: confidenceThreshold,

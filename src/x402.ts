@@ -69,7 +69,7 @@ export function buildX402(): X402Runtime {
   const httpServer = new x402HTTPResourceServer(resourceServer, {
     "POST /v1/jobs": jobRoute,
   });
-  const initPromise = httpServer.initialize().catch((error) => {
+  const initPromise = (config.devSkipPayment ? Promise.resolve() : httpServer.initialize()).catch((error) => {
     console.error("x402 facilitator initialization failed", error);
     throw error;
   });

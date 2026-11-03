@@ -7,7 +7,7 @@ let dolphin: OpenAI | null = null;
 function dolphinClient(): OpenAI | null {
   if (!config.dolphinApiKey) return null;
   if (!dolphin) {
-    dolphin = new OpenAI({ apiKey: config.dolphinApiKey, baseURL: config.dolphinBaseUrl });
+    dolphin = new OpenAI({ apiKey: config.dolphinApiKey, baseURL: config.dolphinBaseUrl, timeout: 60_000, maxRetries: 0 });
   }
   return dolphin;
 }
@@ -70,8 +70,8 @@ function mockArtifact(spec: JobSpec, variant: Artifact["variant"]): string {
 
   const sections = spec.criteria.requiredSections;
   const citationPool = [
-    "https://arxiv.org/abs/2501.00001",
-    "https://www.nber.org/papers/w32000",
+    "https://example.com/mock-source-1",
+    "https://example.com/mock-source-2",
     "https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai",
     "https://a16z.com/ai-agents/",
     "https://www.gartner.com/en/newsroom/press-releases",
@@ -85,7 +85,7 @@ function mockArtifact(spec: JobSpec, variant: Artifact["variant"]): string {
     })
     .join("\n\n");
 
-  return `# ${spec.title}\n\n${body}\n\n## Sources\n\n${citationPool
+  return `# ${spec.title}\n\nSIMULATED CONTENT. Required terms: ${spec.criteria.mustMention.join(", ")}.\n\n${body}\n\n## Sources\n\n${citationPool
     .slice(0, Math.max(spec.criteria.minCitations, 4))
     .map((url) => `- ${url}`)
     .join("\n")}\n`;
@@ -121,7 +121,7 @@ export async function generateArtifact(
         };
       }
     } catch (error) {
-      console.warn("Dolphin generation failed; falling back to SERV", error);
+      console.warn("Dolphin generation failed; falling back to SERV");
     }
   }
 
@@ -138,10 +138,11 @@ export async function generateArtifact(
         };
       }
     } catch (error) {
-      console.warn("SERV generation failed; using the local mock seller", error);
+      console.warn("SERV generation failed; no live seller artifact is available");
     }
   }
 
+  if (!config.devMockVerdict) throw new Error("Seller generation failed; local mock fallback is disabled");
   return {
     content: mockArtifact(spec, variant),
     model: "mock",

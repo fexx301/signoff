@@ -1,52 +1,54 @@
 import type { Hex } from "viem";
 import { config } from "./config.js";
-import { explorerTxUrl, fromAtomic, walletFromKey } from "./kite.js";
-import type { Job } from "./types.js";
+import { fromAtomic, walletFromKey } from "./kite.js";
+import { store } from "./store.js";
+import type { Job, TransferIntent } from "./types.js";
 
-export interface TransferResult {
-  tx: string;
-  explorerUrl: string | null;
-  mock: boolean;
-}
-
-function processorKey(): Hex {
-  if (!config.processorPrivateKey) throw new Error("PROCESSOR_PRIVATE_KEY is not configured");
-  return config.processorPrivateKey as Hex;
-}
-
-function mockTx(kind: string, jobId: string): string {
-  return `mock_${kind}_${jobId}_${Date.now()}`;
-}
-
-async function transfer(to: string, atomic: bigint, kind: string, jobId: string): Promise<TransferResult> {
-  if (config.devMockPayout) {
-    return { tx: mockTx(kind, jobId), explorerUrl: null, mock: true };
+export function assertFunded(job: Job): void {
+  const payment = job.payment;
+  if (!payment || !payment.payer || !/^0x[0-9a-fA-F]{40}$/.test(payment.payer) || /^0x0{40}$/i.test(payment.payer) ||
+      payment.amountAtomic !== job.priceAtomic || payment.network !== config.chain.network ||
+      payment.asset.toLowerCase() !== config.chain.assetAddress.toLowerCase()) {
+    throw new Error("A settled payment matching this job is required");
   }
-  if (!to || !/^0x[0-9a-fA-F]{40}$/.test(to)) {
-    throw new Error(`${kind} address is not a valid EVM address: ${to}`);
+  const simulated = payment.mode === "dev" || job.verdict?.serv?.model === "mock" || job.artifact?.provider === "mock";
+  if (simulated && !(config.devSkipPayment && config.devMockVerdict && config.devMockPayout)) {
+    throw new Error("Simulated payment, seller, or verdict cannot authorize live transfers");
   }
-  if (atomic <= 0n) throw new Error(`${kind} amount must be positive`);
-
-  const wallet = walletFromKey(config.chain, processorKey());
-  const hash = await wallet.transfer(to as `0x${string}`, atomic);
-  return { tx: hash, explorerUrl: explorerTxUrl(config.chain, hash), mock: false };
+  if (payment.mode === "x402" && (!payment.tx || !/^0x[0-9a-fA-F]{64}$/.test(payment.tx))) {
+    throw new Error("Confirmed incoming settlement transaction is required");
+  }
 }
 
 export function sellerAmount(job: Job): bigint {
-  const price = BigInt(job.priceAtomic);
-  const fee = BigInt(job.feeAtomic);
-  return price - fee;
+  return BigInt(job.priceAtomic) - BigInt(job.feeAtomic);
 }
 
-export async function releaseToSeller(job: Job): Promise<TransferResult> {
-  const to = job.spec.sellerPayout;
-  return transfer(to, sellerAmount(job), "payout", job.id);
+export async function prepareTransfer(job: Job): Promise<TransferIntent> {
+  assertFunded(job);
+  const kind = job.disposition;
+  if (!kind) throw new Error("No disposition has been claimed");
+  const to = kind === "payout" ? job.spec.sellerPayout : job.buyerAddress!;
+  const atomic = kind === "payout" ? sellerAmount(job) : BigInt(job.priceAtomic);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(to) || /^0x0{40}$/i.test(to) || atomic <= 0n) throw new Error("Invalid transfer");
+  if (config.devMockPayout) {
+    return { kind, to, amountAtomic: atomic.toString(), hash: `mock_${kind}_${job.id}`, rawTransaction: null, mock: true };
+  }
+  if (!config.processorPrivateKey) throw new Error("PROCESSOR_PRIVATE_KEY is required");
+  const wallet = walletFromKey(config.chain, config.processorPrivateKey as Hex);
+  const nonce = store.reserveNonce(config.chain.network, wallet.address.toLowerCase(), job.id, await wallet.pendingNonce());
+  const signed = await wallet.prepareTransfer(to as Hex, atomic, nonce);
+  return { kind, to, amountAtomic: atomic.toString(), ...signed, mock: false };
 }
 
-export async function refundBuyer(job: Job): Promise<TransferResult> {
-  const to = job.buyerAddress;
-  if (!to) throw new Error("cannot refund: the payment payload did not include a payer address");
-  return transfer(to, BigInt(job.priceAtomic), "refund", job.id);
+export async function confirmTransfer(intent: TransferIntent): Promise<void> {
+  if (intent.mock) {
+    if (!config.devMockPayout) throw new Error("Cannot confirm a simulated transfer in live mode");
+    return;
+  }
+  if (!intent.rawTransaction || !config.processorPrivateKey) throw new Error("Signed transaction and processor key required");
+  const wallet = walletFromKey(config.chain, config.processorPrivateKey as Hex);
+  await wallet.confirmTransfer(intent.rawTransaction as Hex, intent.hash as Hex, intent.to as Hex, BigInt(intent.amountAtomic));
 }
 
 export function amounts(job: Job): { priceUsd: string; sellerUsd: string; feeUsd: string } {

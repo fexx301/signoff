@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Acceptance escrow for agent payments: x402 settles on 200 OK; Signoff settles on proof.",
+  "description": "Agent payments, released on acceptance.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "probe": "tsx scripts/probe.ts",
-    "demo": "tsx scripts/demo-buyer.ts"
+    "demo": "tsx scripts/demo-buyer.ts",
+    "setup:processor": "tsx scripts/create-processor.ts",
+    "verify:serv": "tsx scripts/verify-serv.ts"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",
