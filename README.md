@@ -6,6 +6,12 @@ A Kite Passport session caps *how much* an agent can spend. It doesn't check wha
 
 Built for SERV Hackathon 02, Kite track. It uses SERV Reasoning for intent checks and Kite Passport for payments.
 
+## Demo (1:25)
+
+[![Signoff demo: Kite lists an endpoint at $0.001; Passport paid $0.002 on Base. Click to watch the 1:25 demo.](media/signoff-demo-poster.jpg)](media/signoff-demo.mp4)
+
+[Watch the demo](media/signoff-demo.mp4) (MP4, 11 MB). It shows a real 2× charge that plain Passport paid on Nov 3, then a live run on Nov 4: the same call refused, an off-intent request refused by SERV, and a clean paid call with its receipt. Every terminal line in the video is real output, with cuts marked `⋯`.
+
 ## The problem, measured on Kite's own catalog
 
 Kite's discovery catalog lists each paid endpoint with a price and a state (`works`, `untested` or `broken`). Agents plan with those listed prices. The payment itself is whatever the endpoint's live `402 Payment Required` asks for, and Passport pays it as long as it fits under the session cap.
