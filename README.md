@@ -126,4 +126,4 @@ Exit codes: `0` allowed or paid, `2` refused, `3` held, `1` error.
 
 ## Repository history
 
-The first commits are an earlier prototype: a custodial acceptance-escrow processor (`src/server.ts`, `src/jobs.ts` and related files). It was shelved because Passport could not pay a custom host and Kite runs its own escrow runtime. That code still runs and its tests still pass, but it is not part of the guard.
+The first commits are an earlier prototype: a custodial acceptance-escrow processor. It was shelved because Passport could not pay a custom host and Kite runs its own escrow runtime. It has been removed from `main` so this branch holds only the guard. The full prototype, with passing tests, lives on the [`escrow-prototype`](https://github.com/fexx301/signoff/tree/escrow-prototype) branch (tag `escrow-prototype-v0`). Its tests include deliberately malicious prompt-injection fixtures, each labelled as adversarial test input.
