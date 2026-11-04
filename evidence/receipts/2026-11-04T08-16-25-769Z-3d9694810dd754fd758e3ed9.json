@@ -1,0 +1,63 @@
+{
+ "at": "2026-11-04T08:16:25.769Z",
+ "listing": {
+  "id": "3d9694810dd754fd758e3ed9",
+  "scope": "GET api.sitecheck-api.workers.dev /api/weather",
+  "method": "GET",
+  "url": "https://api.sitecheck-api.workers.dev/api/weather",
+  "priceUsd": 0.001,
+  "state": "works",
+  "example": {
+   "query": {
+    "lat": "52.52",
+    "lon": "13.405"
+   },
+   "body": null
+  },
+  "job": "SiteCheck: get: weather forecast for a place or coordinate",
+  "inputs": "lat (query, required), lon (query, required)",
+  "promised": "attribution, checkedAt, current.cloudAreaPct, current.humidityPct, current.symbol, current.tempC, current.time, current.windFromDeg, current.windSpeedMs, daily[].date, daily[].maxC, daily[].minC, daily[].precipitationMm, daily[].symbol, forecastUpdatedAt, hourly[].precipitationMm, hourly[].symbol, hourly[].tempC, hourly[].time, hourly[].windSpeedMs, location.lat, location.lon, source, units.precipitation, units.temperature, units.wind"
+ },
+ "listingHash": "sha256:29b4a9126973dacd52d8976d5a11c2904864d7bea3e1d9ad32812af39aa37942",
+ "input": {
+  "query": {
+   "lat": "52.52",
+   "lon": "13.405"
+  },
+  "body": null
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.002,
+   "payTo": "0xb8491f953e6860d3b5840b73c60883ff099ceafa"
+  },
+  "otherOffers": 12
+ },
+ "intent": "What's the weather in Lagos this week?",
+ "fit": {
+  "verdict": "no",
+  "reason": "Endpoint forecasts weather, but the request is for Berlin coordinates, not Lagos, so it would not serve the user's intent.",
+  "evidence": "lat=52.52",
+  "model": "gpt-5.4-mini"
+ },
+ "decision": {
+  "decision": "REFUSE",
+  "reasons": [
+   {
+    "code": "off_intent",
+    "detail": "SERV: Endpoint forecasts weather, but the request is for Berlin coordinates, not Lagos, so it would not serve the user's intent. (quote: \"lat=52.52\")"
+   }
+  ],
+  "notes": [
+   {
+    "code": "payee_unpinned",
+    "detail": "first use: 0xb8491f953e6860d3b5840b73c60883ff099ceafa will be pinned after a successful payment"
+   }
+  ]
+ },
+ "replyFit": null
+}

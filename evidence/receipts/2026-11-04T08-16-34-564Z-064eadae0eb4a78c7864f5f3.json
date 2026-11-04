@@ -1,0 +1,68 @@
+{
+ "at": "2026-11-04T08:16:34.564Z",
+ "listing": {
+  "id": "064eadae0eb4a78c7864f5f3",
+  "scope": "POST agent402.tools /api/base-convert",
+  "method": "POST",
+  "url": "https://agent402.tools/api/base-convert",
+  "priceUsd": 0.001,
+  "state": "works",
+  "example": {
+   "query": null,
+   "body": {
+    "value": "ff",
+    "from": 16,
+    "to": 2
+   }
+  },
+  "job": "Agent402 Tools: convert: integer between number bases (radix 2-36)",
+  "inputs": "value (body, required), from (body, required), to (body, required)",
+  "promised": "decimal, result"
+ },
+ "listingHash": "sha256:97431bc3961811b8bda6e80682e5cb41d05d72dbddfcd4da9d55e9d0dd81c7b1",
+ "input": {
+  "query": null,
+  "body": {
+   "value": "ff",
+   "from": 16,
+   "to": 10
+  }
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.001,
+   "payTo": "0xabf4fabd7c416fb67202e5f9002389fc75e2a9d0"
+  },
+  "otherOffers": 16
+ },
+ "intent": "Convert the hex value ff to decimal",
+ "fit": {
+  "verdict": "yes",
+  "reason": "The endpoint converts integers between number bases and the request converts ff from base 16 to base 10, which matches the user's intent to convert hex to decimal.",
+  "evidence": "value\":\"ff\",\"from\":16,\"to\":10",
+  "model": "gpt-5.4-mini"
+ },
+ "decision": {
+  "decision": "ALLOW",
+  "reasons": [],
+  "notes": []
+ },
+ "replyFit": {
+  "verdict": "yes",
+  "reason": "The reply provides the decimal conversion of ff as 255, matching the user's intent.",
+  "evidence": "\"decimal\":255",
+  "model": "gpt-5.4-mini"
+ },
+ "paid": {
+  "ok": true,
+  "tx": "0x4889b7f1cc42febbcc67430fa93b7e50918ceece612c435768b62fbe4e28a4f0",
+  "amountUsd": 0.001,
+  "http": 200,
+  "replySha256": "sha256:ee186416eddfeab6954b1aa26687071f2b377ac2bdc3871a47751ada182a5992",
+  "paidDiffersFromChecked": false
+ }
+}

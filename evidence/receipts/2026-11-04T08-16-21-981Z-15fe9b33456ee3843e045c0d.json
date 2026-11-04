@@ -1,0 +1,58 @@
+{
+ "at": "2026-11-04T08:16:21.981Z",
+ "listing": {
+  "id": "15fe9b33456ee3843e045c0d",
+  "scope": "GET api.sitecheck-api.workers.dev /api/validate",
+  "method": "GET",
+  "url": "https://api.sitecheck-api.workers.dev/api/validate",
+  "priceUsd": 0.001,
+  "state": "works",
+  "example": {
+   "query": {
+    "type": "isbn",
+    "value": "0306406152"
+   },
+   "body": null
+  },
+  "job": "SiteCheck: validate: check digits of ISBN, EAN, VIN, IMEI and ISIN codes",
+  "inputs": "type (query, required), value (query, required)",
+  "promised": "checkedAt, normalised, parts.isbn13, subtype, type, valid, value"
+ },
+ "listingHash": "sha256:df08942ff3d7a78f90bc3a87616fc3706e6898b841d715fea6e2d3b1ae493012",
+ "input": {
+  "query": {
+   "type": "isbn",
+   "value": "0306406152"
+  },
+  "body": null
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.002,
+   "payTo": "0xb8491f953e6860d3b5840b73c60883ff099ceafa"
+  },
+  "otherOffers": 12
+ },
+ "intent": null,
+ "fit": null,
+ "decision": {
+  "decision": "REFUSE",
+  "reasons": [
+   {
+    "code": "price_drift",
+    "detail": "asks $0.002 vs listed $0.001 (2.00x)"
+   }
+  ],
+  "notes": [
+   {
+    "code": "payee_unpinned",
+    "detail": "first use: 0xb8491f953e6860d3b5840b73c60883ff099ceafa will be pinned after a successful payment"
+   }
+  ]
+ },
+ "replyFit": null
+}
