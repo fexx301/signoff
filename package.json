@@ -14,7 +14,8 @@
     "demo": "tsx scripts/demo-buyer.ts",
     "setup:processor": "tsx scripts/create-processor.ts",
     "verify:serv": "tsx scripts/verify-serv.ts",
-    "setup:seller": "tsx scripts/create-processor.ts --seller"
+    "setup:seller": "tsx scripts/create-processor.ts --seller",
+    "guard": "tsx scripts/guard.ts"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",

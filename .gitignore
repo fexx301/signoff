@@ -12,3 +12,5 @@ dist/
 .kite-passport/
 
 .kpass/
+
+.signoff/
