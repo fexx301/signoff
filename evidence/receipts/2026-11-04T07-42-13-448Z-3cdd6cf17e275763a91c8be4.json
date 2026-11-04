@@ -1,0 +1,63 @@
+{
+ "at": "2026-11-04T07:42:13.448Z",
+ "listing": {
+  "id": "3cdd6cf17e275763a91c8be4",
+  "scope": "GET quartermaster.surewhynot.app /v1/translate",
+  "method": "GET",
+  "url": "https://quartermaster.surewhynot.app/v1/translate",
+  "priceUsd": 0.005,
+  "state": "works",
+  "example": {
+   "query": {
+    "text": "Hello world",
+    "to": "Spanish"
+   },
+   "body": null
+  },
+  "job": "quartermaster.surewhynot.app: convert: text translated into another language",
+  "inputs": "text (query, required), to (query, required)",
+  "promised": "input_chars, model, to, translation"
+ },
+ "listingHash": "sha256:30a94b5494b5589b23620c3cb9c6ba19e84fcff9abfad7b52dab926a9af42d3d",
+ "input": {
+  "query": {
+   "text": "Hello world",
+   "to": "Spanish"
+  },
+  "body": null
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.005,
+   "payTo": "0x5253666c40432f009ebd99908b9cd2a7fd1019cb"
+  },
+  "otherOffers": 2
+ },
+ "intent": "Tell me whether this customer review is positive or negative: 'Not bad at all.'",
+ "fit": {
+  "verdict": "no",
+  "reason": "The endpoint translates text, but the user wants sentiment classification of a review. The request also passes \"Hello world\" and asks for Spanish translation, which does not serve the stated intent.",
+  "evidence": "convert: text translated into another language",
+  "model": "gpt-5.4-mini"
+ },
+ "decision": {
+  "decision": "REFUSE",
+  "reasons": [
+   {
+    "code": "off_intent",
+    "detail": "SERV: The endpoint translates text, but the user wants sentiment classification of a review. The request also passes \"Hello world\" and asks for Spanish translation, which does not serve the stated intent. (quote: \"convert: text translated into another language\")"
+   }
+  ],
+  "notes": [
+   {
+    "code": "payee_unpinned",
+    "detail": "first use: 0x5253666c40432f009ebd99908b9cd2a7fd1019cb will be pinned after a successful payment"
+   }
+  ]
+ },
+ "replyFit": null
+}

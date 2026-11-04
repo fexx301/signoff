@@ -1,0 +1,43 @@
+{
+ "at": "2026-11-04T07:15:06.621Z",
+ "listing": {
+  "id": "26deb632e2c47a64da316a38",
+  "scope": "POST x402.ottoai.services /generate-meme",
+  "method": "POST",
+  "url": "https://x402.ottoai.services/generate-meme",
+  "priceUsd": 0.15,
+  "state": "works",
+  "example": {
+   "query": null,
+   "body": {
+    "prompt": "make a funny crypto meme",
+    "model": "gpt-image-2",
+    "aspect_ratio": "1:1"
+   }
+  }
+ },
+ "listingHash": "sha256:6a2264338c8c61792abc2b26f5fe1f40bb03cfd3c3e7947f8fd44374116bd602",
+ "input": {
+  "query": null,
+  "body": {
+   "prompt": "make a funny crypto meme",
+   "model": "gpt-image-2",
+   "aspect_ratio": "1:1"
+  }
+ },
+ "checked": {
+  "http": 410,
+  "offer": null,
+  "otherOffers": 0
+ },
+ "decision": {
+  "decision": "REFUSE",
+  "reasons": [
+   {
+    "code": "retired",
+    "detail": "endpoint answered 410 Gone"
+   }
+  ],
+  "notes": []
+ }
+}

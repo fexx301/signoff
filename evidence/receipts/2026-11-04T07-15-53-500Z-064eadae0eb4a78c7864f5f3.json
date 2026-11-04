@@ -1,0 +1,57 @@
+{
+ "at": "2026-11-04T07:15:53.500Z",
+ "listing": {
+  "id": "064eadae0eb4a78c7864f5f3",
+  "scope": "POST agent402.tools /api/base-convert",
+  "method": "POST",
+  "url": "https://agent402.tools/api/base-convert",
+  "priceUsd": 0.001,
+  "state": "works",
+  "example": {
+   "query": null,
+   "body": {
+    "value": "ff",
+    "from": 16,
+    "to": 2
+   }
+  }
+ },
+ "listingHash": "sha256:3f6b2cd06a707060e5891b061bdb09035828b7095f2684e1394caa82ce0c394f",
+ "input": {
+  "query": null,
+  "body": {
+   "value": "ff",
+   "from": 16,
+   "to": 10
+  }
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.001,
+   "payTo": "0xabf4fabd7c416fb67202e5f9002389fc75e2a9d0"
+  },
+  "otherOffers": 16
+ },
+ "decision": {
+  "decision": "ALLOW",
+  "reasons": [],
+  "notes": [
+   {
+    "code": "payee_unpinned",
+    "detail": "first use: 0xabf4fabd7c416fb67202e5f9002389fc75e2a9d0 will be pinned after a successful payment"
+   }
+  ]
+ },
+ "paid": {
+  "ok": true,
+  "tx": "0x2796c0ea32567471b97b83f3900e2e16a854c9e0af1fe95f8a5f763232724055",
+  "amountUsd": 0.001,
+  "http": 200,
+  "replySha256": "sha256:ee186416eddfeab6954b1aa26687071f2b377ac2bdc3871a47751ada182a5992",
+  "paidDiffersFromChecked": false
+ }
+}

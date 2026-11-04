@@ -1,0 +1,50 @@
+{
+ "at": "2026-11-04T07:15:04.898Z",
+ "listing": {
+  "id": "137e3faa0995b0061fa25e68",
+  "scope": "POST app.tenna.ai /api/x402/lumi/social_timing_check",
+  "method": "POST",
+  "url": "https://app.tenna.ai/api/x402/lumi/social_timing_check",
+  "priceUsd": 0.01,
+  "state": "works",
+  "example": {
+   "query": null,
+   "body": {}
+  }
+ },
+ "listingHash": "sha256:24ddf32a8e0015098ca33c7a957fc1b2988fc978e5af32b1713443b62c707d08",
+ "input": {
+  "query": null,
+  "body": {}
+ },
+ "checked": {
+  "http": 402,
+  "offer": {
+   "network": "eip155:8453",
+   "asset": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "scheme": "exact",
+   "amountUsd": 0.1,
+   "payTo": "0x7eaf3c393a8996e124c0fa7ccbc55019854c4c5b"
+  },
+  "otherOffers": 1
+ },
+ "decision": {
+  "decision": "REFUSE",
+  "reasons": [
+   {
+    "code": "price_drift",
+    "detail": "asks $0.1 vs listed $0.01 (10.00x)"
+   },
+   {
+    "code": "over_budget",
+    "detail": "asks $0.1, your limit is $0.02"
+   }
+  ],
+  "notes": [
+   {
+    "code": "payee_unpinned",
+    "detail": "first use: 0x7eaf3c393a8996e124c0fa7ccbc55019854c4c5b will be pinned after a successful payment"
+   }
+  ]
+ }
+}
