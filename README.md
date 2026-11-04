@@ -1,80 +1,123 @@
 # Signoff
 
-Agent payments. Released on acceptance.
+**Check what your agent is about to pay for before Passport pays.**
 
-A buyer agent buys a brief from one configured automated seller. Signoff receives the payment through x402, holds the funds in its testnet processor wallet, and evaluates delivery against the frozen job policy. Accepted work pays the seller; rejected work refunds the buyer; uncertain results hold funds for review.
+A Kite Passport session caps *how much* an agent can spend. It doesn't check what the agent is actually being charged, who receives the money, or whether the call serves what you asked for. Signoff runs those checks before every payment.
 
-This is a custodial Kite-testnet prototype. The processor controls the wallet and the verifier policy. It is not trustless escrow. No mainnet support is enabled.
+Built for SERV Hackathon 02, Kite track. It uses SERV Reasoning for intent checks and Kite Passport for payments.
 
-## What the acceptance check establishes
+## The problem, measured on Kite's own catalog
 
-`brief-v1` checks section presence/order, word count, citation URL count, required terms, placeholder/reviewer-instruction patterns, and six SERV semantic criteria. SERV must return each expected criterion ID once with exact boolean types and verbatim artifact quotes for passing criteria. Missing, malformed, incomplete, or low-confidence semantic results do not release funds.
+Kite's discovery catalog lists each paid endpoint with a price and a state (`works`, `untested` or `broken`). Agents plan with those listed prices. The payment itself is whatever the endpoint's live `402 Payment Required` asks for, and Passport pays it as long as it fits under the session cap.
 
-The semantic check evaluates relevance, audience, developed sections, terms, citation attribution, and reviewer-directed instructions. It does **not** fetch cited pages or establish factual accuracy. The live verifier probe includes a deliberately wrong answer to supplied fictional facts; passing that fixture does not establish general research correctness or prompt-injection resistance.
+On 2026-11-03 and again on 2026-11-04, we sent unpaid requests to a 343-endpoint keyword sample of the catalog and compared each live payment request with its listing:
 
-The configured automated seller accepts valid incoming specs under this published policy when a job is created, before payment settlement and generation. There is no multi-seller onboarding or negotiation UI. Job/spec and criteria hashes freeze the accepted inputs; completed receipts also hash the verifier verdict. Model/provider and simulation status remain visible.
+- **24 of 165 endpoints marked `works` asked more than their listed price**, mostly 2× and up to 10× (app.tenna.ai: $0.10 against a listed $0.01).
+- Endpoints marked `untested` asked up to **$10 against a listed $0.022** (stablestudio, 455×) and **$2 against $0.005** (stableupload, 400×). Both use the fixed `exact` payment scheme.
+- One endpoint marked `works` answered `410 Gone` ("retired").
+- **Plain Passport paid a 2× charge silently.** Two sitecheck endpoints listed at $0.001 charged $0.002 each, with no warning:
+  - [`0x45ea39ec…21fb`](https://basescan.org/tx/0x45ea39ec465d54a627fd86df1317c971a5d69cc034e01d9a981ca2eb919321fb)
+  - [`0xa19a865d…35a8`](https://basescan.org/tx/0xa19a865dff80bccb65f12747c1b7a4718c5944b6b8b20925c0604cb5729835a8)
+- The catalog records no expected payee, so Passport pays whatever `payTo` address the live 402 names.
 
-## Setup
+These are small amounts today. The point is structural: nothing between the listing and the signature compares them.
 
-Use a Node runtime that supports `node:sqlite` (Node 24 is the tested runtime).
+Reproduce it yourself for free; no wallet is needed:
 
 ```sh
 npm ci
-cp .env.example .env.local
-npm run setup:processor
-npm run setup:seller
+npm run guard -- report
 ```
 
-If `.env.local` already exists, keep it instead of copying over it. `setup:processor` creates a dedicated testnet processor key if absent, sets the matching PAY_TO, keeps any existing SERV key, and prints only the public address. It writes the ignored secret file with mode 600. Never commit that file or share its private key. `setup:seller` similarly creates a dedicated receiving wallet and replaces the prototype payout placeholder. Keep its key locally so the seller payment remains accessible.
+## What Signoff checks
 
-Request testnet KITE for the displayed public address at the official faucet: https://faucet.gokite.ai/ . Network settings: https://docs.gokite.ai/kite-chain/1-getting-started/network-information . The chain is 2368; native KITE covers gas. Testnet pieUSD is the buyer payment asset and reaches the processor through an incoming paid job. Buyer/session funding is a separate integration step.
+`check` sends the request unpaid and reads the payment terms. `pay` runs the same check and pays through your Passport session only if the decision is `ALLOW`.
 
-Set a SERV_API_KEY, a unique SELLER_SECRET, and a SELLER_PAYOUT_ADDRESS controlled by the demo seller. Dolphin is optional: the seller can use SERV instead. Failed live generation never silently falls back to a local mock.
+| Check | Decision | Why |
+|---|---|---|
+| Live price above the listed price (beyond `--slippage-bps`) | `REFUSE price_drift` | You planned for the listing, not the live price |
+| Live price above `--max-usd` | `REFUSE over_budget` | Your per-call limit |
+| `payTo` differs from the payee pinned on first successful use | `REFUSE payee_changed` | Trust on first use, like SSH `known_hosts` |
+| Endpoint answers `410 Gone` | `REFUSE retired` | |
+| No USDC-on-Base option | `REFUSE wrong_asset` | |
+| SERV: this endpoint or this exact request doesn't serve the intent | `REFUSE off_intent` | Arithmetic can't tell a translation API from a sentiment API |
+| SERV unsure, or SERV unavailable | `HOLD intent_unclear` | Fails closed |
+| Unpaid `404` or `5xx`, variable-price scheme, or unlisted price | `HOLD` | Not proof of a problem; a person decides |
 
-### Offline development
+Every decision writes a receipt to `.signoff/receipts/` with:
+- the listing and its hash;
+- the live terms;
+- the reasons for the decision;
+- the SERV verdicts and the quotes they rest on;
+- if paid, the Base transaction and a hash of the reply.
 
-Set all three switches together:
+After a payment, SERV also checks whether the reply satisfies the intent. That verdict is recorded on the receipt.
 
-```text
-DEV_SKIP_PAYMENT=true
-DEV_MOCK_VERDICT=true
-DEV_MOCK_PAYOUT=true
-```
+## How SERV is used
 
-Then `npm run dev`. The page and receipts clearly label simulated runs. Mixed mock/live payment modes are rejected at startup, and funded-job guards also reject simulated inputs before live money movement. Development startup does not contact the facilitator.
+SERV Reasoning makes the two judgements the arithmetic can't:
 
-### Live testnet run
+1. **Before paying:** does this endpoint, called with this exact request, serve the user's intent?
+2. **After paying:** does the reply satisfy it?
 
-Set all DEV_* switches to false and configure the processor key, matching PAY_TO, seller address/secret, SERV key, and public HTTPS base URL. Run `npm run probe` for access checks. The CLI/session custom-host payment path is **still unproven**. Do not treat an HTTP 402 challenge as evidence that a Passport session can pay it.
+Both calls use a strict JSON schema with three verdicts: `yes`, `no` or `unsure`. A `yes` or `no` must quote an exact substring of the request or reply. Otherwise Signoff downgrades it to `unsure` and holds the payment.
 
-`npm run verify:serv` tests four fictional fixtures with a maximum of two verdict attempts per fixture (with one bounded repair for malformed verdicts). It signs no payment. Use `DB_PATH=:memory:` for an ephemeral probe; `SIGNOFF_ENV_FILE` optionally selects an existing local secret file. Do not publish credentials in output or screenshots.
+Live examples from 2026-11-04 (`gpt-5.4-mini` via SERV):
 
-`npm run demo -- --dry` prints a challenge and a proposed Passport command. Without `--dry`, a configured BUYER_PRIVATE_KEY enables an actual testnet payment; execute only when that test transaction is authorized. The seller's payout address must be controlled and checked before funding the run.
+| Intent | Request | Result |
+|---|---|---|
+| "Convert the hex value ff to decimal" | base-convert, `from:16, to:10` | ALLOW. Paid [`0x210b1a2f…f2b7`](https://basescan.org/tx/0x210b1a2f23e6f9859685d9d7018f22f425c327fbabfb270283b7a8308de4f2b7); the reply check confirmed "255" |
+| same | base-convert, `to:2` | REFUSE off_intent, quoting `"to":2` |
+| "Is this review positive or negative?" | a translation endpoint | REFUSE off_intent: wrong job |
+| "Weather in Lagos this week" | weather at `lat=52.52&lon=13.405` (Berlin) | REFUSE off_intent, quoting the coordinates |
 
-## Payment integrity and recovery
+## How Kite Passport is used
 
-The job starts awaiting payment. Successful matching settlement is required before seller execution, delivery, and disposition. A signed payment is bound to one job/spec; replay returns that job rather than settling again. Incoming settlement errors leave `payment_pending` and never authorize a payout. An ambiguous incoming outcome requires manual chain/facilitator reconciliation; automatic incoming-payment recovery is not implemented. Do not blindly buy again.
+- **Payments:** `pay` calls `kpass session execute` in a passkey-approved Passport session, which enforces the per-call and total caps. Signoff decides whether that call should happen at all.
+- **Endpoint data:** listings, prices and catalog states come from Kite's discovery catalog through `ksearch`.
 
-A database compare-and-swap claims one disposition (payout or refund). The processor reserves its nonce in SQLite, signs the transaction, and stores the signed transaction and hash **before broadcast**. Retries reconcile or rebroadcast those exact signed bytes. Confirmation must report success and the expected token Transfer event before the job becomes released/refunded. Receipt timeouts remain `transferring`; the background sweep retries confirmation without rerunning the model or changing disposition. Reverted transfers and externally consumed nonces require manual reconciliation; automatic replacement transactions are deliberately unsupported.
+## Quick start
 
-Keep the database and processor key together. Do not share the processor wallet with another application or manually send from it: external nonce use can stall recovery. SQLite holds signed transactions, so keep the database private. Public API responses omit the raw transaction. A process restart holds interrupted seller/verifier work for explicit retry. Use one app process for this prototype; replicas and production-scale scheduling are out of scope.
-
-Old prototype records cannot retroactively establish confirmed live payments. Use fresh jobs/database for the final demo; retain existing data as development evidence.
-
-## Optional Reppo escalation
-
-Appeals are allowed only while funds remain held and before any disposition is claimed. Deterministic policy failures cannot be overridden. One appeal is allowed per job. An exact normalized decision is required; free-text substrings and high scores cannot turn unknown/negative decisions into acceptance. Unknown results, provider failures, or appeal deadline expiry move the job to an explicit review hold. There is no automatic refund for uncertainty, and no public manual-release endpoint. An unresolved hold needs operator reconciliation.
-
-Provider response mappings and end-to-end appeal settlement remain unverified against a live Reppo account. The API flow exists, but do not claim a working independent appeals system until its real result format and outcomes have been exercised.
-
-## Checks and current evidence
+Requirements: Node 24, plus the `ksearch` and `kpass` CLIs (Kite Passport).
 
 ```sh
-npm test
-npm run typecheck
-npm run build
+npm ci
+cp .env.example .env.local      # set SERV_API_KEY for intent checks
+
+# Free: compare one endpoint's live terms with its listing
+npm run guard -- check 064eadae0eb4a78c7864f5f3 --body '{"value":"ff","from":16,"to":10}' \
+  --intent "Convert the hex value ff to decimal"
+
+# Pays only on ALLOW. PASSPORT_DIR is the folder holding your Passport login
+# and an approved session (kpass session create ...).
+PASSPORT_DIR=~/my-passport npm run guard -- pay 064eadae0eb4a78c7864f5f3 \
+  --body '{"value":"ff","from":16,"to":10}' --intent "Convert the hex value ff to decimal"
+
+# Free catalog-wide drift report
+npm run guard -- report
 ```
 
-The regression suite covers funding guards, absent SERV credentials, complete verdict validation, concurrent appeal polls, durable transfer recovery, nonce persistence across database reopen, transaction confirmation/reverts, retries, HTTP seller authentication, simulated receipts, and payment replay. Provider/facilitator responses and transfers are mocked in automated tests. Test success is not evidence of a paid Kite job or live model reliability.
+Options:
+- `--max-usd` sets the per-call limit (default 0.02).
+- `--slippage-bps` sets the allowed price drift above the listing (default 0).
+- `--query` and `--body` override the listing's example input.
 
-Outstanding: live custom-host payment, confirmed live payout/refund, broader verifier calibration, Reppo and optional Dolphin access, demo recording, public repo, and submission. External publishing and transaction execution need the builder's authorization.
+Exit codes: `0` allowed or paid, `2` refused, `3` held, `1` error.
+
+## Evidence in this repo
+
+`evidence/` holds the 2026-11-04 drift report and the guard's receipts: the allowed paid calls and the refusals. Raw catalog data comes from Kite's public discovery service, and transactions can be checked on Basescan.
+
+`scripts/audit-probe.ts` and `scripts/free-audit.py` are the research scripts behind the first measurements. `scripts/arbiter-probe.ts` records a probe of Kite's agreement runtime. On dev it answered that the agreement surface is not yet live.
+
+## Limits
+
+- **Small samples.** The catalog numbers come from a keyword sample (343 endpoints), checked once per run. Prices can change legitimately; the finding is that listings go stale, not that any seller misbehaved.
+- **Re-fetch window.** `kpass` re-fetches the 402 just before signing. If the price moves between Signoff's check and the payment, the receipt flags it (`paidDiffersFromChecked`) but cannot prevent it. Closing that window needs Passport to accept a pinned amount and payee.
+- **Payee pins are stored locally** in `.signoff/pins.json`. A first use is trusted by definition.
+- **Limited SERV evidence.** The intent checks are LLM judgements bound to quoted evidence. They hold when unsure, but they are not proven against adversarial inputs.
+- **Paid checks are narrow.** Twenty paid audit calls found no endpoint that returned wrong output for its listing, so Signoff does not claim sellers deliver bad work.
+
+## Repository history
+
+The first commits are an earlier prototype: a custodial acceptance-escrow processor (`src/server.ts`, `src/jobs.ts` and related files). It was shelved because Passport could not pay a custom host and Kite runs its own escrow runtime. That code still runs and its tests still pass, but it is not part of the guard.
