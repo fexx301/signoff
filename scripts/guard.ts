@@ -1,7 +1,7 @@
 // signoff guard CLI. --intent "<what the user asked for>" adds the SERV fit check (before paying, and on the reply).
 //   tsx scripts/guard.ts check <catalogId> [--query JSON] [--body JSON] [--max-usd 0.02] [--slippage-bps 0]
 //   tsx scripts/guard.ts report [--words a,b,c]   (free catalog-wide drift report)
-//   tsx scripts/guard.ts pay   <catalogId> ... (PASSPORT_DIR = folder holding the Passport login/session)
+//   tsx scripts/guard.ts pay   <catalogId> ... (PASSPORT_DIR = folder holding the Passport login/session; default: current folder)
 // Exit: 0 allowed/paid, 2 refused, 3 held, 1 error.
 import { parseArgs } from "node:util";
 import { randomUUID } from "node:crypto";
@@ -51,8 +51,8 @@ for (const r of [...decision.reasons, ...decision.notes]) console.log(`  - ${r.c
 
 let paid, replyFit;
 if (cmd === "pay" && decision.decision === "ALLOW") {
-  const dir = process.env.PASSPORT_DIR;
-  if (!dir) { console.error("PASSPORT_DIR is required for pay"); process.exit(1); }
+  // kpass resolves its login and current session from the folder it runs in.
+  const dir = process.env.PASSPORT_DIR || process.cwd();
   paid = pay(listing, input, dir, `signoff-${listing.id}-${randomUUID()}`);
   if (paid.ok && live.offer) writePin(values.state!, listing.scope, live.offer.payTo);
   console.log(paid.ok ? `  paid $${paid.amountUsd} on Base, tx ${paid.tx}, reply HTTP ${paid.http}` : `  payment failed: ${paid.raw.slice(0, 300)}`);
