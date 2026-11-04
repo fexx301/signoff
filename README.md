@@ -28,9 +28,11 @@ On 2026-11-03 and again on 2026-11-04, we sent unpaid requests to a 343-endpoint
 
 These are small amounts today. The point is structural: nothing between the listing and the signature compares them.
 
-Reproduce it yourself for free; no wallet is needed:
+Reproduce it yourself for free; no wallet is needed. You need Node 24 and Kite's CLI, which installs `kpass` and `ksearch`:
 
 ```sh
+curl -fsSL https://cli.gokite.ai/install.sh | bash
+git clone https://github.com/fexx301/signoff && cd signoff
 npm ci
 npm run guard -- report
 ```
@@ -43,7 +45,7 @@ npm run guard -- report
 |---|---|---|
 | Live price above the listed price (beyond `--slippage-bps`) | `REFUSE price_drift` | You planned for the listing, not the live price |
 | Live price above `--max-usd` | `REFUSE over_budget` | Your per-call limit |
-| `payTo` differs from the payee pinned on first successful use | `REFUSE payee_changed` | Trust on first use, like SSH `known_hosts` |
+| `payTo` differs from the payee pinned on first successful use | `REFUSE payee_changed` | Trust on first use, like SSH `known_hosts`. Shown live with a hand-edited pin in `evidence/` |
 | Endpoint answers `410 Gone` | `REFUSE retired` | |
 | No USDC-on-Base option | `REFUSE wrong_asset` | |
 | SERV: this endpoint or this exact request doesn't serve the intent | `REFUSE off_intent` | Arithmetic can't tell a translation API from a sentiment API |
@@ -84,7 +86,7 @@ Live examples from 2026-11-04 (`gpt-5.4-mini` via SERV):
 
 ## Quick start
 
-Requirements: Node 24, plus the `ksearch` and `kpass` CLIs (Kite Passport).
+Requirements: Node 24, plus Kite's CLI: `curl -fsSL https://cli.gokite.ai/install.sh | bash` installs `kpass` and `ksearch`.
 
 ```sh
 npm ci
@@ -95,7 +97,7 @@ npm run guard -- check 064eadae0eb4a78c7864f5f3 --body '{"value":"ff","from":16,
   --intent "Convert the hex value ff to decimal"
 
 # Pays only on ALLOW. PASSPORT_DIR is the folder holding your Passport login
-# and an approved session (kpass session create ...).
+# and an approved session (kpass session create ...); it defaults to the current folder.
 PASSPORT_DIR=~/my-passport npm run guard -- pay 064eadae0eb4a78c7864f5f3 \
   --body '{"value":"ff","from":16,"to":10}' --intent "Convert the hex value ff to decimal"
 
@@ -110,9 +112,27 @@ Options:
 
 Exit codes: `0` allowed or paid, `2` refused, `3` held, `1` error.
 
+## Use it from your agent
+
+[`skills/signoff-guard/SKILL.md`](skills/signoff-guard/SKILL.md) is a drop-in skill for agents that pay with Kite Passport. It tells the agent to run Signoff's `pay` instead of calling `kpass session execute` directly, to pass the user's own words as the intent, and how to act on each decision: report an ALLOW, explain a REFUSE and never route around it, and ask the user on a HOLD. Run from any folder, Signoff uses that folder's Passport login:
+
+```sh
+PASSPORT_DIR="$PWD" npm --prefix ~/signoff run -s guard -- pay <catalogId> --intent "<the user's request>"
+```
+
+## Revenue (a plan, not yet tested with customers)
+
+- **Hosted guard, priced per check.** Run Signoff as a paid x402 endpoint in Kite's catalog, so agents pay a fraction of a cent per check through Passport, the same rail it protects. Price, payee and liveness checks cost one unpaid HTTP request to run; the paid tier covers SERV's intent and reply checks.
+- **Catalog health feed.** A scheduled drift and liveness feed for catalogs and marketplaces, Kite's included, to replace `untested` states and stale prices. It is cheap to produce: the 343-endpoint sweep takes about 50 seconds and pays nothing.
+- **Verified listings.** Sellers pay for scheduled re-checks that keep their listing's price, payee and liveness verified.
+
+No customer has been asked yet. What is established is that the problem exists on Kite's live catalog today.
+
 ## Evidence in this repo
 
-`evidence/` holds the 2026-11-04 drift report and the guard's receipts: the allowed paid calls and the refusals. Raw catalog data comes from Kite's public discovery service, and transactions can be checked on Basescan.
+`evidence/` holds two 2026-11-04 drift reports and the guard's receipts, with an index in [`evidence/README.md`](evidence/README.md): three paid ALLOW calls with Base transactions, the refusals (price drift, over budget, retired, off-intent, and a payee change shown with a hand-edited pin), and the two silent 2× charges from before the guard. Raw catalog data comes from Kite's public discovery service, and transactions can be checked on Basescan.
+
+The findings were sent to Kite through Passport's agent feedback channel on 2026-11-04.
 
 `scripts/audit-probe.ts` and `scripts/free-audit.py` are the research scripts behind the first measurements. `scripts/arbiter-probe.ts` records a probe of Kite's agreement runtime. On dev it answered that the agreement surface is not yet live.
 
@@ -120,10 +140,14 @@ Exit codes: `0` allowed or paid, `2` refused, `3` held, `1` error.
 
 - **Small samples.** The catalog numbers come from a keyword sample (343 endpoints), checked once per run. Prices can change legitimately; the finding is that listings go stale, not that any seller misbehaved.
 - **Re-fetch window.** `kpass` re-fetches the 402 just before signing. If the price moves between Signoff's check and the payment, the receipt flags it (`paidDiffersFromChecked`) but cannot prevent it. Closing that window needs Passport to accept a pinned amount and payee.
-- **Payee pins are stored locally** in `.signoff/pins.json`. A first use is trusted by definition.
+- **Payee pins are stored locally** in `.signoff/pins.json`. A first use is trusted by definition. No real payee change has been observed; the refusal is shown with a hand-edited pin.
 - **Limited SERV evidence.** The intent checks are LLM judgements bound to quoted evidence. They hold when unsure, but they are not proven against adversarial inputs.
 - **Paid checks are narrow.** Twenty paid audit calls found no endpoint that returned wrong output for its listing, so Signoff does not claim sellers deliver bad work.
 
 ## Repository history
 
 The first commits are an earlier prototype: a custodial acceptance-escrow processor. It was shelved because Passport could not pay a custom host and Kite runs its own escrow runtime. It has been removed from `main` so this branch holds only the guard. The full prototype, with passing tests, lives on the [`escrow-prototype`](https://github.com/fexx301/signoff/tree/escrow-prototype) branch (tag `escrow-prototype-v0`). Its tests include deliberately malicious prompt-injection fixtures, each labelled as adversarial test input.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -85,4 +85,4 @@ Open the transaction on Basescan, then the receipt JSON.
 - [ ] Recheck that the sitecheck drift still exists on the recording day. If it has been fixed, say so and use tenna instead.
 - [ ] Captions on.
 - [ ] Mark Nov 3 footage as "recorded".
-- [ ] The payee-change refusal is shown only as a table row and unit test; no live payee change was observed.
+- [ ] The payee-change refusal is shown live only with a hand-edited pin (`evidence/README.md`); no real payee change was observed.
