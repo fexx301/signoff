@@ -126,4 +126,6 @@ Exit codes: `0` allowed or paid, `2` refused, `3` held, `1` error.
 
 ## Repository history
 
+This branch (`escrow-prototype`) keeps the shelved prototype. Its test fixtures deliberately contain prompt-injection text (a note addressed to an "automated reviewer") to prove the verifier rejects it; each is labelled as adversarial test input in the code.
+
 The first commits are an earlier prototype: a custodial acceptance-escrow processor (`src/server.ts`, `src/jobs.ts` and related files). It was shelved because Passport could not pay a custom host and Kite runs its own escrow runtime. That code still runs and its tests still pass, but it is not part of the guard.

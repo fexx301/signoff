@@ -1,6 +1,7 @@
 import { SEMANTIC_IDS } from "./policy.js";
 import type { AcceptanceCriteria, Artifact, CombinedVerdict, DeterministicCheck, ServVerdict } from "./types.js";
 
+// Detection list: phrases the verifier blocks in delivered work (prompt-injection canaries), not instructions to any reader.
 const BUILT_IN_CANARIES = [
   "ignore the acceptance criteria",
   "ignore all acceptance criteria",

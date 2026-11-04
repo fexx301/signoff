@@ -3,6 +3,7 @@ import { SEMANTIC_IDS, semanticCriteria } from "./policy.js";
 import { config } from "./config.js";
 import type { Artifact, DeterministicCheck, Job, ServCriterionResult, ServVerdict } from "./types.js";
 
+// System prompt sent to the SERV verifier model at runtime.
 const SYSTEM_PROMPT = `You are Signoff, an independent acceptance verifier for agent-delivered work.
 
 Your job is to decide whether an artifact meets the acceptance criteria that the buyer registered BEFORE delivery. You are not the seller's editor and you are not the buyer's advocate. You are the proof step that decides whether escrowed money is released or refunded.
