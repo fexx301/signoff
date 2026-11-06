@@ -12,6 +12,18 @@ Built for SERV Hackathon 02, Kite track. It uses SERV Reasoning for intent check
 
 [Watch the demo on YouTube](https://youtu.be/9GDkkxlrAGA), or download the [MP4](media/signoff-demo.mp4) (11 MB). It shows a real 2× charge that plain Passport paid on Nov 3, then a live run on Nov 4: the same call refused, an off-intent request refused by SERV, and a clean paid call with its receipt. Every terminal line in the video is real output, with cuts marked `⋯`.
 
+## For reviewers: each claim, its code and how to check it
+
+| Claim | Code | Check |
+|---|---|---|
+| Refuse and hold rules (price drift, over budget, payee change, retired, wrong asset, off-intent) | `decide()` in [`src/guard.ts`](src/guard.ts) | `npm test` (12 tests, no credentials) |
+| A SERV verdict must quote the request or reply verbatim, or it becomes `unsure` and the payment is held | `validateFit()` and `servFit()` in [`src/guard.ts`](src/guard.ts) | [`test/guard.test.ts`](test/guard.test.ts) |
+| Pays only on `ALLOW`, through `kpass session execute` | `pay()` in [`src/guard.ts`](src/guard.ts); the `pay` command in [`scripts/guard.ts`](scripts/guard.ts) | Receipts with Base transactions in [`evidence/`](evidence/README.md) |
+| 24 of 165 `works` endpoints asked more than listed | `report()` in [`src/guard.ts`](src/guard.ts) | [`evidence/drift-report-*.json`](evidence/); rerun free with `npm run guard -- report` (live numbers will move as the catalog changes) |
+| Plain Passport paid 2× silently; the guard's paid calls | n/a | Basescan links in [`evidence/README.md`](evidence/README.md) |
+
+`npm ci && npm test && npm run typecheck` needs no credentials. `check` and `report` also need Kite's CLI, but no wallet. Intent checks need `SERV_API_KEY`; without it they `HOLD`.
+
 ## The problem, measured on Kite's own catalog
 
 Kite's discovery catalog lists each paid endpoint with a price and a state (`works`, `untested` or `broken`). Agents plan with those listed prices. The payment itself is whatever the endpoint's live `402 Payment Required` asks for, and Passport pays it as long as it fits under the session cap.
